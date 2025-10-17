@@ -1,0 +1,8 @@
+# Abaikan folder virtual environment Python
+.venv/
+
+# Abaikan folder hasil scraping
+hasil_scrape/
+
+# Abaikan folder profil scraping
+ScrapeProfile/
