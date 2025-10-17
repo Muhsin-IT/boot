@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Samehadaku Scraper</title>
+    <style>
+        /* CSS DENGAN STYLE LEBIH KEREN */
+        
+        /* Body dan Font */
+        body { 
+            width: 320px; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 15px; 
+            background-color: #f4f7f6; /* Latar belakang lebih lembut */
+            color: #333;
+        }
+
+        /* Header */
+        h3 {
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 8px;
+            margin-top: 0;
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        /* Tombol - Menggunakan Flat Design */
+        button { 
+            width: 100%; 
+            padding: 10px 15px; 
+            border: none; 
+            cursor: pointer; 
+            margin-bottom: 8px; 
+            font-size: 1em;
+            font-weight: 600;
+            border-radius: 4px; /* Sudut sedikit melengkung */
+            transition: background-color 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Bayangan lembut */
+        }
+        
+        /* Hover Effect */
+        button:hover { 
+            opacity: 0.9; 
+            transform: translateY(-1px); /* Efek angkat sedikit */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Warna Tombol */
+        #scrapeButton { 
+            background-color: #007bff; /* Biru Utama */
+            color: white; 
+        }
+        
+        #copyButton { 
+            background-color: #28a745; /* Hijau Salin */
+            color: white; 
+        }
+        
+        #hapusButton { 
+            background-color: #dc3545; /* Merah Hapus */
+            color: white; 
+        }
+
+        /* Status Area */
+        #status { 
+            margin-top: 15px; 
+            font-size: 0.9em; 
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+        }
+
+        /* Results Area (JSON Output) */
+        #results { 
+            margin-top: 15px; 
+            max-height: 400px; 
+            overflow-y: auto; 
+            white-space: pre-wrap; 
+            word-break: break-word; 
+            border: 1px solid #ccc; 
+            padding: 10px; 
+            background-color: #1e1e1e; /* Background gelap untuk kode */
+            color: #d4d4d4; /* Teks terang */
+            font-family: 'Consolas', 'Courier New', monospace; /* Font monospace untuk kode */
+            font-size: 0.85em;
+            border-radius: 4px;
+        }
+        
+        /* Paragraf info */
+        p {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+    </style>
+</head>
+<body>
+    <h3>Anime Scraper 🚀</h3>
+    <p>Pastikan Anda berada di halaman detail anime atau episode.</p>
+    
+    <button id="scrapeButton">Mulai Scraping</button>
+    <button id="copyButton">Salin JSON</button>
+    <button id="hapusButton">Hapus Data</button>
+    
+    <div id="status">Status: Siap.</div>
+    <div id="results"></div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
