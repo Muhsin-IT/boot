@@ -5,7 +5,7 @@ from selenium.common.exceptions import TimeoutException, StaleElementReferenceEx
 import time
 import json
 import os 
-import undetected_chromedriver as uc # Import library untuk mengatasi Cloudflare
+import undetected_chromedriver as uc
 
 # =======================================================================
 # 1. KONFIGURASI TARGET DAN FUNGSI UTAMA
@@ -27,6 +27,8 @@ ANIME_LIST = []
 INFO_AREA_SELECTOR = ".infoanime.widget_senction"
 DETAIL_AREA_SELECTOR = ".anime.infoanime .spe span"
 EPISODE_LIST_SELECTOR = ".lstepsiode.listeps ul li"
+# Selector BARU untuk peringatan konten
+WARNING_SELECTOR = "div.alr"
 
 # Selectors untuk halaman EPISODE
 OPTION_SELECTOR = "#server ul li div.east_player_option"
@@ -37,7 +39,8 @@ DOWNLOAD_AREA_SELECTOR = "div.download-eps"
 # --- FUNGSI A: SCRAPE DETAIL ANIME ---
 def scrape_anime_detail(driver):
     """Mengambil informasi dasar, deskripsi, detail, dan daftar episode."""
-    data = {'judul': 'N/A', 'link_poster': 'N/A', 'rating': 'N/A', 'deskripsi': 'N/A', 'genre': [], 'detail_anime': {}, 'list_episode': []}
+    # Definisikan kunci utama, termasuk 'peringatan' di posisi yang diinginkan
+    data = {'judul': 'N/A', 'link_poster': 'N/A', 'rating': 'N/A', 'deskripsi': 'N/A', 'genre': [], 'detail_anime': {}, 'peringatan': 0, 'list_episode': []}
     
     try:
         # Tunggu elemen info utama
@@ -84,7 +87,22 @@ def scrape_anime_detail(driver):
                     data['detail_anime'][parts[0].strip()] = parts[1].strip()
         except: pass
 
-        # 5. List Episode Links
+        # 5. Peringatan Konten (Dipindahkan ke sini)
+        try:
+            # Cek apakah elemen peringatan ada di halaman
+            warning_element = driver.find_element(By.CSS_SELECTOR, WARNING_SELECTOR)
+            # Jika ditemukan, set 'peringatan' menjadi 1
+            data['peringatan'] = 1
+        except NoSuchElementException:
+            # Jika tidak ditemukan, 'peringatan' tetap 0 (nilai default)
+            pass
+        except Exception as e:
+            # Tangani error lain, tapi tetap set nilai default (0)
+            print(f"   [ERROR] Gagal saat mengecek peringatan: {e}")
+            data['peringatan'] = 0
+
+
+        # 6. List Episode Links (Dipindahkan ke bawah Peringatan)
         try:
             episode_elements = driver.find_elements(By.CSS_SELECTOR, EPISODE_LIST_SELECTOR)
             for ep in episode_elements:
@@ -146,7 +164,7 @@ def scrape_video_player_links(driver):
     video_links = {}
     
     try:
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 3).until(
             EC.presence_of_all_elements_located((By.CSS_SELECTOR, OPTION_SELECTOR))
         )
         player_options = driver.find_elements(By.CSS_SELECTOR, OPTION_SELECTOR)
@@ -160,45 +178,40 @@ def scrape_video_player_links(driver):
                 option = player_options[i]
                 option_name = option.find_element(By.TAG_NAME, "span").text
                 
-                # Cek dulu apakah iframe ada di DOM sebelum mencoba klik/ambil SRC
-                WebDriverWait(driver, 5).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, IFRAME_SELECTOR))
-                )
+                # Klik opsi server
+                driver.execute_script("arguments[0].click();", option)
+                time.sleep(0.5)  # Jeda sedikit lebih lama untuk pemuatan
                 
-                # Ambil SRC yang sedang aktif (sebelum klik)
-                old_src = driver.find_element(By.CSS_SELECTOR, IFRAME_SELECTOR).get_attribute("src")
-
-                # LOGIKA KHUSUS UNTUK OPSI DEFAULT (i=0)
-                if i == 0:
-                    new_src = old_src
-                
-                else:
-                    # Klik opsi server
-                    driver.execute_script("arguments[0].click();", option)
-                    
-                    # Tambahkan jeda singkat untuk pemuatan script
-                    time.sleep(0.5) 
-
-                    # Tunggu hingga SRC yang baru berbeda dari yang lama
-                    WebDriverWait(driver, 15).until(
-                        lambda driver: driver.find_element(By.CSS_SELECTOR, IFRAME_SELECTOR).get_attribute("src") != old_src
+                # Cek apakah iframe muncul setelah klik (maksimal 3 detik)
+                try:
+                    WebDriverWait(driver, 3).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, IFRAME_SELECTOR))
                     )
-                    time.sleep(1) # Jeda lagi untuk memastikan iframe stabil
+                    time.sleep(0.3)  # Jeda untuk stabilisasi
+                    
+                    # Ambil SRC iframe
                     new_src = driver.find_element(By.CSS_SELECTOR, IFRAME_SELECTOR).get_attribute("src")
+                    
+                    # Validasi apakah SRC valid (tidak kosong atau "about:blank")
+                    if new_src and new_src != "about:blank" and len(new_src) > 10:
+                        video_links[option_name] = new_src
+                    else:
+                        video_links[option_name] = "ERROR: Iframe SRC kosong atau tidak valid"
+                        
+                except TimeoutException:
+                    video_links[option_name] = "TIMEOUT: Iframe tidak muncul dalam 3 detik"
+                except NoSuchElementException:
+                    video_links[option_name] = "ERROR: Iframe tidak ditemukan setelah klik"
 
-                video_links[option_name] = new_src
-
-            except TimeoutException:
-                video_links[option_name] = "TIMEOUT: Iframe tidak berubah atau dimuat ulang"
             except StaleElementReferenceException:
                 video_links[option_name] = "Element Stale: Gagal menemukan elemen setelah DOM refresh"
             except NoSuchElementException:
-                video_links[option_name] = "NoSuchElement: Iframe tidak ditemukan di DOM"
+                video_links[option_name] = "NoSuchElement: Elemen tidak ditemukan di DOM"
             except Exception as inner_e:
-                 video_links[option_name] = f"Error Tidak Diketahui: {str(inner_e).splitlines()[0]}"
+                 video_links[option_name] = f"Error: {str(inner_e).splitlines()[0]}"
 
     except Exception as e:
-        print(f"   [ERROR] Gagal memulai/mengulang scraping player: {e}")
+        print(f"   [ERROR] Gagal memulai scraping player: {e}")
     
     return video_links
 
@@ -263,14 +276,15 @@ try:
         options=options,
         use_subprocess=True
     ) 
-    driver.implicitly_wait(10)
+    # HAPUS atau KURANGI implicit wait - ini yang bikin lambat!
+    driver.implicitly_wait(2)  # Dikurangi dari 10 detik jadi 2 detik
     # -----------------------------------------------------------
   # Tambahkan langkah ini untuk debugging
     print("Menguji navigasi awal...")
     # Navigasi ke URL pertama
     test_url = ANIME_LIST[0].get('url') if ANIME_LIST else "about:blank"
     driver.get(test_url)
-    time.sleep(5) # Beri waktu 5 detik agar Anda bisa melihat browser
+    time.sleep(3) # Dikurangi dari 5 detik jadi 3 detik
 
     
     # -------------------------------------------------------------
@@ -305,7 +319,7 @@ try:
         if ANIME_DATA.get('judul') != 'N/A':
              anime_title = ANIME_DATA['judul']
              
-        print(f"✅ Detail anime '{anime_title}' berhasil diambil. Ditemukan {total_episodes} episode.")
+        print(f"✅ Detail anime '{anime_title}' berhasil diambil. Ditemukan {total_episodes} episode. Peringatan: {ANIME_DATA['peringatan']}.")
 
         # -------------------------------------------------------------
         # STEP 2: LOOP & SCRAPE TIAP EPISODE
